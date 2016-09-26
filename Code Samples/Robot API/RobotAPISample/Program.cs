@@ -1,4 +1,5 @@
 ﻿using System;
+using RobotAPISample.Automation;
 
 namespace RobotAPISample
 {
@@ -6,12 +7,47 @@ namespace RobotAPISample
     {
         static void Main(string[] args)
         {
-            var client = new RobotClient();
-            // Make sure the path to the workflow is correct
-            // The workflow project is called RobotAPI and can be found next to the solution file
-            var job = @"{'WorkflowFile': 'C:\\Workflows\\RobotAPISample\\RobotAPI\\Main.xaml', 'InputArguments': {'Message': 'Message from RobotAPISample'}, 'User': 'andra', 'Type': 0}";
-            Console.WriteLine(client.StartJob(job));
+            var citrixIsRunning = Landonline.EnsureCitrixRunning();
+            if (!citrixIsRunning)
+            {
+                throw new ApplicationException("Unable to launch Citrix");
+            }
+
+            // TODO must ensure that it handles invalid references gracefully
+            //TitleReferences = new List<string> { "WN516/98", "OT17A/765", "MB23C/987" },
+            //TitleReferences = new [] { "WN516/98", "OT17A/765" },
+
+            var response = Landonline.ExecuteTitleSearch(new TitleSearchRequest[] 
+            {
+                new TitleSearchRequest
+                {
+                    TitleReference = "invalid",
+                    Type = Workflows.LINZTitleSearchType.TitleSearchNoDiagram,
+                    OrderId = "Order000"
+                },
+                //new TitleSearchRequest
+                //{
+                //    TitleReference = "WN516/98",
+                //    Type = Workflows.LINZTitleSearchType.Guaranteed,
+                //    OrderId = "Order001"
+                //},
+                //new TitleSearchRequest
+                //{
+                //    TitleReference = "invalid",
+                //    Type = Workflows.LINZTitleSearchType.TitleSearchNoDiagram,
+                //    OrderId = "Order000"
+                //},
+                //new TitleSearchRequest
+                //{
+                //    TitleReference = "OT17A/765",
+                //    Type = Workflows.LINZTitleSearchType.Historical,
+                //    OrderId = "Order002"
+                //}
+            });
+            
             Console.ReadLine();
         }
     }
+    
 }
+
