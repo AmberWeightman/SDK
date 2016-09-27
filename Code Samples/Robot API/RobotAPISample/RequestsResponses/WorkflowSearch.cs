@@ -39,7 +39,8 @@ namespace RobotAPISample.RequestsResponses
             var workflowSearchRequest = request as WorkflowSearchRequest;
             if (workflowSearchRequest != null)
             {
-                if(workflowSearchRequest.OrderIds != this.OrderIds)
+                if (workflowSearchRequest.OrderIds.Count() != OrderIds.Count() 
+                    || workflowSearchRequest.OrderIds.Intersect(OrderIds).Count() != OrderIds.Count())
                 {
                     throw new ApplicationException("OrderIds do not match request");
                 }

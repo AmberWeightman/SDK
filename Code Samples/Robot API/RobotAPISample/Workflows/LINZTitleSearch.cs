@@ -21,12 +21,14 @@ namespace RobotAPISample.Workflows
         public string[] TitleReferences { get; set; }
 
         public LINZTitleSearchType[] Types { get; set; }
-        
-        public TitleSearchRequest[] SourceRequests { get; }
+
+        //public TitleSearchRequest[] SourceRequests { get; }
+
+        private Dictionary<string, TitleSearchRequest> _sourceRequests;
 
         public LINZTitleSearchWorkflowRequest(TitleSearchRequest[] titleSearchRequests)
         {
-            SourceRequests = titleSearchRequests;
+            _sourceRequests = titleSearchRequests.ToDictionary(a => a.OrderId, a => a);
 
             var requestCount = titleSearchRequests.Count();
             var titleReferences = new string[requestCount];
@@ -43,6 +45,11 @@ namespace RobotAPISample.Workflows
             TitleReferences = titleReferences;
             Types = types;
             OrderIds = orderIds;
+        }
+
+        public TitleSearchRequest GetSourceRequest(string orderId)
+        {
+            return (_sourceRequests == null || !_sourceRequests.ContainsKey(orderId)) ? null : _sourceRequests[orderId];
         }
 
         public override bool Validate()
@@ -68,7 +75,7 @@ namespace RobotAPISample.Workflows
 
     public class LINZTitleSearchWorkflowResponse : WorkflowSearchResponse
     {
-        public List<SearchResult> SearchResults { get; set; }
+        public List<SearchResults> SearchResults { get; set; }
 
         public List<string> FileNames { get; set; }
 
@@ -92,7 +99,7 @@ namespace RobotAPISample.Workflows
 
                         // Update the source request with the saved file name
                         var orderId = fileName.Split('_')[0];
-                        var associatedSourceRequest = workflowSearchRequest.SourceRequests.SingleOrDefault(sr => string.Equals(sr.OrderId, orderId));
+                        var associatedSourceRequest = workflowSearchRequest.GetSourceRequest(orderId);
                         if (associatedSourceRequest != null)
                         {
                             associatedSourceRequest.Success = true;
@@ -100,9 +107,58 @@ namespace RobotAPISample.Workflows
                         }
                     }
                 }
+
+                // Infill search results
+                foreach (var searchResult in SearchResults)
+                {
+                    var associatedSourceRequest = workflowSearchRequest.GetSourceRequest(searchResult.OrderId);
+                    if (associatedSourceRequest != null)
+                    {
+                        associatedSourceRequest.SearchResults = searchResult.Results;
+                    }
+                }
+
+                foreach (var message in WarningMessages.Where(w => !string.IsNullOrEmpty(w.OrderId)))
+                {
+                    var associatedSourceRequest = workflowSearchRequest.GetSourceRequest(message.OrderId);
+                    if (associatedSourceRequest != null)
+                    {
+                        if (associatedSourceRequest.Warnings == null) associatedSourceRequest.Warnings = new List<string>();
+                        associatedSourceRequest.Warnings.Add(message.Text);// = 
+                    }
+                }
+                foreach (var message in ErrorMessages.Where(w => !string.IsNullOrEmpty(w.OrderId)))
+                {
+                    var associatedSourceRequest = workflowSearchRequest.GetSourceRequest(message.OrderId);
+                    if (associatedSourceRequest != null)
+                    {
+                        if (associatedSourceRequest.Errors == null) associatedSourceRequest.Errors = new List<string>();
+                        associatedSourceRequest.Errors.Add(message.Text); 
+                    }
+                }
             }
             
             return isValid;
+        }
+        
+    }
+
+    public class SearchResults
+    {
+        public string OrderId { get; set; }
+        public List<SearchResult> Results { get; set; }
+
+        public SearchResults(KeyValuePair<string, string> data)
+        {
+            OrderId = data.Key;
+            Results = new List<SearchResult>();
+
+            // All lines in data.Value (excluding the first line, which is always the header)
+            var lines = data.Value.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Skip(1);
+            foreach (var line in lines)
+            {
+                Results.Add(new SearchResult(line));
+            }
         }
     }
 
@@ -119,21 +175,16 @@ namespace RobotAPISample.Workflows
 
         public SearchResult(string tabSeparatedData)
         {
-            var lines = tabSeparatedData.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            if (lines.Any()) // for now, assumes there is only one line (or two lines, with the first line being the header)
-            {
-                var values = lines.Last().Split(new char[] { '\t' }, StringSplitOptions.None);
-                CT = values[0];
-                Owner = values[1];
-                Status = values[2];
-                PotentiallyMaoriLand = values[3];
-                LegalDescription = values[4];
-                IndicativeArea = values[5];
-                LandDistrict = values[6];
-                TimeshareWeek = values[7];
-            }
+            var values = tabSeparatedData.Split(new char[] { '\t' }, StringSplitOptions.None);
+            CT = values[0];
+            Owner = values[1];
+            Status = values[2];
+            PotentiallyMaoriLand = values[3];
+            LegalDescription = values[4];
+            IndicativeArea = values[5];
+            LandDistrict = values[6];
+            TimeshareWeek = values[7];
         }
-        
     }
     
     public class LINZTitleSearchWorkflow : RobotWorkflowBase<LINZTitleSearchWorkflowRequest, LINZTitleSearchWorkflowResponse>

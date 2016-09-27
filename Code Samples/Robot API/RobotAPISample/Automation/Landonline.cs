@@ -7,6 +7,7 @@ using RobotAPISample.Workflows;
 using WFICALib;
 using RobotAPISample.RequestsResponses;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace RobotAPISample.Automation
 {
@@ -434,17 +435,6 @@ namespace RobotAPISample.Automation
         {
             var request = new LINZTitleSearchWorkflowRequest(titleSearchRequests);
             var response = new LINZTitleSearchWorkflow().Execute(request);
-            
-            Console.WriteLine($"\nCitrix workflow status: {response.WorkflowStatus}");
-            Console.WriteLine($"Search results:");
-            if (response.SearchResults != null && response.SearchResults.Any())
-            {
-                foreach (var searchResult in response.SearchResults)
-                {
-                    Console.WriteLine(searchResult);
-                }
-            }
-            
             return response;
         }
     }
@@ -460,5 +450,11 @@ namespace RobotAPISample.Automation
         public string OutputFilePath { get; set; }
 
         public bool Success { get; set; }
+
+        public List<SearchResult> SearchResults { get; set; }
+
+        public List<string> Errors { get; set; }
+
+        public List<string> Warnings { get; set; }
     }
 }

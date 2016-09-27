@@ -35,13 +35,13 @@ namespace RobotAPISample.RequestsResponses
                         {
                             if (copyFrom.Output.ContainsKey("SearchResults"))
                             {
-                                var searchResults = JsonConvert.DeserializeObject<List<string>>(copyFrom.Output["SearchResults"].ToString(), new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.None });
+                                var searchResults = JsonConvert.DeserializeObject<Dictionary<string, string>>(copyFrom.Output["SearchResults"].ToString(), new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.None });
                                 if (searchResults.Any())
                                 {
-                                    ((LINZTitleSearchWorkflowResponse)workflowResponse).SearchResults = new List<SearchResult>();
+                                    ((LINZTitleSearchWorkflowResponse)workflowResponse).SearchResults = new List<SearchResults>();
                                     foreach (var searchResult in searchResults)
                                     {
-                                        ((LINZTitleSearchWorkflowResponse)workflowResponse).SearchResults.Add(new SearchResult(searchResult));
+                                        ((LINZTitleSearchWorkflowResponse)workflowResponse).SearchResults.Add(new SearchResults(searchResult));
                                     }
                                 }
                             }
