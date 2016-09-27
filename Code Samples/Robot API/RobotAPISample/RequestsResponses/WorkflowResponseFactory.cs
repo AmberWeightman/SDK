@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
-using RobotAPISample.RequestsResponses;
 using RobotAPISample.Workflows;
 
 namespace RobotAPISample.RequestsResponses
@@ -17,28 +16,8 @@ namespace RobotAPISample.RequestsResponses
             {
                 case WorkflowType.CheckCitrixAvailable:
                     {
-                        workflowResponse = new CheckCitrixAvailabilityResponse();
+                        workflowResponse = new WorkflowResponse(); // Does not have its own response type
                         CopyFrom(workflowResponse, copyFrom);
-
-                        if (copyFrom != null && copyFrom.Output.ContainsKey("IsAvailable"))
-                        {
-                            bool isAvailable;
-                            Boolean.TryParse(copyFrom.Output["IsAvailable"].ToString(), out isAvailable);
-                            ((CheckCitrixAvailabilityResponse)workflowResponse).IsAvailable = isAvailable;
-                        }
-
-                        break;
-                    }
-                case WorkflowType.CitrixDemo:
-                    {
-                        workflowResponse = new CitrixDemoResponse();
-                        CopyFrom(workflowResponse, copyFrom);
-
-                        if (copyFrom != null && copyFrom.Output.ContainsKey("SampleTextOutput"))
-                        {
-                            ((CitrixDemoResponse)workflowResponse).SampleTextOutput = copyFrom.Output["SampleTextOutput"].ToString();
-                        }
-                        
                         break;
                     }
                 case WorkflowType.ChromeDownloadCitrix:
@@ -91,9 +70,16 @@ namespace RobotAPISample.RequestsResponses
             copyToTarget.Token = copyFromSource.Token;
             copyToTarget.WorkflowFile = copyFromSource.WorkflowFile;
 
+            if (copyToTarget is WorkflowResponse && copyFromSource.Output.ContainsKey("Success"))
+            {
+                bool success;
+                Boolean.TryParse(copyFromSource.Output["Success"].ToString(), out success);
+                ((WorkflowResponse)copyToTarget).Success = success;
+            }
+
             if (copyToTarget is WorkflowSearchResponse && copyFromSource.Output.ContainsKey("OrderIds"))
             {
-                ((WorkflowSearchResponse)copyToTarget).OrderIds = JsonConvert.DeserializeObject<string[]>(copyFromSource.Output.ContainsKey("OrderIds").ToString(), new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.None });
+                ((WorkflowSearchResponse)copyToTarget).OrderIds = JsonConvert.DeserializeObject<string[]>(copyFromSource.Output["OrderIds"].ToString(), new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.None });
             }
         }
     }

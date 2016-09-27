@@ -14,8 +14,13 @@ namespace RobotAPISample.RequestsResponses
         Finished,
     }
 
-    public class WorkflowResponse : EventArgs, IWorkflowMessage
+    public class WorkflowResponse : EventArgs, IWorkflowResponse
     {
+        /// <summary>
+        /// Don't rely on this unless it has been explicitly set in the workflow - it's not a default field
+        /// </summary>
+        public bool Success { get; set; }
+
         public ActivityInstanceState State { get; set; }
 
         public Exception Error { get; set; }
@@ -25,7 +30,7 @@ namespace RobotAPISample.RequestsResponses
         public Guid Token { get; set; }
 
         public string WorkflowFile { get; set; }
-
+        
         /// <summary>
         /// Did execution of the workflow complete fully?
         /// </summary>
@@ -68,14 +73,24 @@ namespace RobotAPISample.RequestsResponses
                 return receivedMessages.Select(message => Message.Create(MessageType.Warning, message.Key, message.Value)).ToList();
             }
         }
-
-        public virtual bool Validate()
+        
+        public virtual bool Validate(IWorkflowRequest request)
         {
+            if (Error != null)
+            {
+                // If there's already an exception, any other error is redundant
+                throw (Error);
+            }
+            
             if (WorkflowStatus != WorkflowStatus.Finished)
             {
                 throw new ApplicationException("Robot job failed to properly execute");
             }
 
+            if (!Output.ContainsKey("Success"))
+            {
+                throw new ApplicationException("Please review workflow script - it is not returning Success");
+            }
             if (!Output.ContainsKey("WorkflowStatus"))
             {
                 throw new ApplicationException("Please review workflow script - it is not returning WorkflowStatus");
@@ -90,6 +105,6 @@ namespace RobotAPISample.RequestsResponses
             }
             return true;
         }
-
+        
     }
 }

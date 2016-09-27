@@ -60,6 +60,11 @@ namespace RobotAPISample.Automation.UiPath
             Channel.CancelJob(jobId.ToString());
         }
 
+        public void RemoveJob(Guid jobId)
+        {
+            Channel.RemoveJob(jobId.ToString());
+        }
+
         public WorkflowResponse QueryJob(Guid jobId)
         {
             var response = Channel.QueryJob(jobId.ToString());
@@ -92,30 +97,28 @@ namespace RobotAPISample.Automation.UiPath
         // Implementation can allow for invokeCompletedInfo to be anything that is serialisable
         public void OnJobCompleted(string invokeCompletedInfo)
         {
-            var settings = new JsonSerializerSettings
-            {
-                TypeNameHandling = TypeNameHandling.None
-            };
+            //Console.WriteLine($"CompletedInfo: {invokeCompletedInfo}");
+            var completedResult = JsonConvert.DeserializeObject<WorkflowResponse>(invokeCompletedInfo, new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.None });
 
-            Console.WriteLine($"CompletedInfo: {invokeCompletedInfo}");
-            var completedResult = JsonConvert.DeserializeObject<WorkflowResponse>(invokeCompletedInfo, settings);
-            if(completedResult.State == System.Activities.ActivityInstanceState.Faulted)
+            var worker = Threading.ActiveRobotWorker;
+            
+            if (completedResult.State == System.Activities.ActivityInstanceState.Faulted)
             {
+                Console.WriteLine($"{worker.WorkflowType} has errors:");
                 Console.WriteLine(completedResult.Error.Message);
                 return;
             }
             else if(completedResult.State ==  System.Activities.ActivityInstanceState.Canceled)
             {
-                Console.WriteLine("Process cancelled");
+                Console.WriteLine($"{worker.WorkflowType} cancelled.\n");
             }
             else
             {
-                Console.WriteLine("Completed without errors");
-                
-                var worker = Threading.RobotWorkflowThreads[completedResult.Token];
-                worker.SetResult(completedResult);
-                worker.RequestStop();
+                Console.WriteLine($"{worker.WorkflowType} completed without fatal errors.\n");
             }
+
+            worker.SetResult(completedResult);
+            worker.RequestStop();
         }
 
         public void OnLog(string logMessage)

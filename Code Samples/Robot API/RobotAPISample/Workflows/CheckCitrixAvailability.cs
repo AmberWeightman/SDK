@@ -1,17 +1,16 @@
-﻿using RobotAPISample.RequestsResponses;
+﻿using System;
+using RobotAPISample.RequestsResponses;
 
 namespace RobotAPISample.Workflows
 {
-    public class CheckCitrixAvailabilityResponse : WorkflowResponse
+    public class CheckCitrixAvailabilityWorkflow : RobotWorkflowBase<WorkflowRequest, WorkflowResponse>
     {
-        public bool IsAvailable { get; set; }
-    }
+        public override string WorkflowFile => WorkflowFiles.CheckCitrixAvailableWorkflow;
 
-    public class CheckCitrixAvailabilityWorkflow : RobotWorkflowBase<WorkflowRequest, CheckCitrixAvailabilityResponse>
-    {
-        public  override string WorkflowFile => WorkflowFiles.CheckCitrixAvailableWorkflow;
         public override WorkflowType WorkflowType => WorkflowType.CheckCitrixAvailable;
-   
+
+        public override int MaxWorkflowDurationMins => 2;
+
     }
 
 }

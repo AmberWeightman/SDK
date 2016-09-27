@@ -14,11 +14,11 @@
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <x:Members>
     <x:Property Name="WorkflowStatus" Type="OutArgument(x:Int32)" />
-    <x:Property Name="IsAvailable" Type="OutArgument(x:Boolean)" />
     <x:Property Name="ErrorMessages" Type="OutArgument(scg:List(scg:KeyValuePair(x:String, s:Object[])))" />
     <x:Property Name="WarningMessages" Type="OutArgument(scg:List(scg:KeyValuePair(x:String, s:Object[])))" />
     <x:Property Name="DefaultTimeoutMS" Type="InArgument(x:Int32)" />
     <x:Property Name="InitialTimeoutMS" Type="InArgument(x:Int32)" />
+    <x:Property Name="Success" Type="OutArgument(x:Boolean)" />
   </x:Members>
   <mva:VisualBasic.Settings>
     <x:Null />
@@ -88,7 +88,7 @@
           <FlowStep x:Name="__ReferenceID3" sap2010:WorkflowViewState.IdRef="FlowStep_32">
             <Assign sap2010:WorkflowViewState.IdRef="Assign_24">
               <Assign.To>
-                <OutArgument x:TypeArguments="x:Boolean">[IsAvailable]</OutArgument>
+                <OutArgument x:TypeArguments="x:Boolean">[Success]</OutArgument>
               </Assign.To>
               <Assign.Value>
                 <InArgument x:TypeArguments="x:Boolean">False</InArgument>
@@ -137,7 +137,7 @@
                         </ui:WindowScope>
                         <Assign sap2010:WorkflowViewState.IdRef="Assign_27">
                           <Assign.To>
-                            <OutArgument x:TypeArguments="x:Boolean">[IsAvailable]</OutArgument>
+                            <OutArgument x:TypeArguments="x:Boolean">[Success]</OutArgument>
                           </Assign.To>
                           <Assign.Value>
                             <InArgument x:TypeArguments="x:Boolean">[CanAttachMainWindow]</InArgument>
@@ -208,7 +208,7 @@
                         </ui:WindowScope>
                       </Sequence>
                       <Sequence DisplayName="Dismiss Citrix Receiver popup" sap2010:WorkflowViewState.IdRef="Sequence_36">
-                        <ui:WindowScope ApplicationWindow="{x:Null}" SearchScope="{x:Null}" Window="{x:Null}" DisplayName="Attach Window 'CitrixRec Nativemes'" sap2010:WorkflowViewState.IdRef="WindowScope_17" InformativeScreenshot="3c3d77291dc58f2cab6eca94e1715dd1" Selector="&lt;wnd app='receiver.exe' cls='NativeMessageWindowClass' title='Citrix Receiver' /&gt;" TimeoutMS="[DefaultTimeoutMS + InitialTimeoutMS]">
+                        <ui:WindowScope ApplicationWindow="{x:Null}" SearchScope="{x:Null}" Window="{x:Null}" ContinueOnError="True" DisplayName="Attach Window 'CitrixRec Nativemes'" sap2010:WorkflowViewState.IdRef="WindowScope_17" InformativeScreenshot="3c3d77291dc58f2cab6eca94e1715dd1" Selector="&lt;wnd app='receiver.exe' cls='NativeMessageWindowClass' title='Citrix Receiver' /&gt;" TimeoutMS="[DefaultTimeoutMS + InitialTimeoutMS]">
                           <ui:WindowScope.Body>
                             <ActivityAction x:TypeArguments="x:Object">
                               <ActivityAction.Argument>
@@ -286,7 +286,7 @@
                     </Parallel>
                     <FlowStep.Next>
                       <FlowStep x:Name="__ReferenceID5" sap2010:WorkflowViewState.IdRef="FlowStep_34">
-                        <If Condition="[Not IsAvailable]" DisplayName="Add warning if not available" sap2010:WorkflowViewState.IdRef="If_1">
+                        <If Condition="[Not Success]" DisplayName="Add warning if not available" sap2010:WorkflowViewState.IdRef="If_1">
                           <If.Then>
                             <AddToCollection x:TypeArguments="scg:KeyValuePair(x:String, s:Object[])" Collection="[WarningMessages]" DisplayName="Add WAR001" sap2010:WorkflowViewState.IdRef="AddToCollection`1_2" Item="[New System.Collections.Generic.KeyValuePair(Of String, Object())(&quot;WAR001&quot;, Nothing)]" />
                           </If.Then>
@@ -319,7 +319,7 @@
     <x:Reference>__ReferenceID3</x:Reference>
     <x:Reference>__ReferenceID4</x:Reference>
     <x:Reference>__ReferenceID5</x:Reference>
-    <sads:DebugSymbol.Symbol>d2pDOlxHaXRcVWlQYXRoU0RLXENvZGUgU2FtcGxlc1xSb2JvdCBBUElcUm9ib3RBUElTYW1wbGVcV29ya2Zsb3dzXERldGVjdEV4cGlyZWRMYW5kb25saW5lSWNhRmlsZTJcTWFpbi54YW1sUAFVAVoBAwF3AXkBAkgDwwIPAgEBSzVLPAIBAk8JVhICAWNZDWAWAgFfYxF0HAIBVncVngIgAgEOoQIZpQIeAgEHqAIdrwImAgEDVDNUNAIBZlE0UUQCAWReOV4+AgFiWzpbRwIBYGQTaxwCAVtsE3McAgFXeBeSASICAUaTARenASICATeoARe8ASICASm9ARfRASICARzSARedAiICAQ+hAiehAjoCAQijAh2jAr4CAgEKrQJHrQJIAgEGqgJIqgJYAgEEaWZpzAECAV5mZ2Z2AgFccWZxzAECAVpuZ254AgFYeRmJASoCAUyKARmRASICAUeUARmmASoCATipARm7ASoCASq+ARnQASoCAR3TARmcAioCARCjAnKjAoUBAgEMowLaAaMCuwICAQt5mQJ5gwMCAVV5jgN5tQMCAVJ5f3mFAQIBUX8fhgEoAgFNjwFFjwFaAgFKjAFGjAFTAgFIlAGnApQBgAMCAUWUAYsDlAGyAwIBQpQBf5QBhQECAUGaAR+jASoCATmpAaQCqQHsAgIBNqkB9wKpAZ4DAgEzqQF/qQGFAQIBMq8BH7gBKgIBK74BqwK+AZMDAgEovgGeA74BxQMCASW+AX++AYUBAgEkxAEfzQEqAgEe0wGUAtMB7QICARvTAfgC0wGfAwIBGNkBH5kCKgIBEYQBS4QBTwIBUIEBTIEBYQIBTpsBIaIBLAIBOrABIbcBLAIBLMUBIcwBLAIBH9oBIegBLAIBE+kBIZgCMQIBEqABnwGgAcUCAgFAoAHQAqAB5AICAT6bAX6bAYQBAgE9nQFNnQFRAgE8nQFAnQFEAgE7tQGfAbUBxAECATG1Ac8BtQHjAQIBL7IBTbIBUQIBLrIBQLIBRAIBLcoBtAHKAcgBAgEixwFNxwFRAgEhxwFAxwFEAgEg5gGfAeYBxgECARfmAdEB5gHlAQIBFdoBftoBhAECARQ=</sads:DebugSymbol.Symbol>
+    <sads:DebugSymbol.Symbol>d2pDOlxHaXRcVWlQYXRoU0RLXENvZGUgU2FtcGxlc1xSb2JvdCBBUElcUm9ib3RBUElTYW1wbGVcV29ya2Zsb3dzXERldGVjdEV4cGlyZWRMYW5kb25saW5lSWNhRmlsZTJcTWFpbi54YW1sUQFVAVoBAwF3AXkBAkgDwwIPAgEBSzVLPAIBAk8JVhICAWRZDWAWAgFgYxF0HAIBV3cVngIgAgEOoQIZpQIeAgEHqAIdrwImAgEDVDNUNAIBZ1E0UUQCAWVeOV4+AgFjWzpbQwIBYWQTaxwCAVxsE3McAgFYeBeSASICAUeTARenASICATioARe8ASICASq9ARfRASICAR3SARedAiICAQ+hAiehAjYCAQijAh2jAr4CAgEKrQJHrQJIAgEGqgJIqgJYAgEEaWZpzAECAV9mZ2Z2AgFdcWZxzAECAVtuZ254AgFZeRmJASoCAU2KARmRASICAUiUARmmASoCATmpARm7ASoCASu+ARnQASoCAR7TARmcAioCARCjAnKjAoUBAgEMowLaAaMCuwICAQt5mQJ5gwMCAVZ5jgN5tQMCAVN5f3mFAQIBUn8fhgEoAgFOjwFFjwFaAgFLjAFGjAFPAgFJlAGnApQBgAMCAUaUAYsDlAGyAwIBQ5QBf5QBhQECAUKaAR+jASoCATqpAaQCqQHsAgIBN6kB9wKpAZ4DAgE0qQF/qQGFAQIBM68BH7gBKgIBLL4BqwK+AZMDAgEpvgGeA74BxQMCASa+AX++AYUBAgElxAEfzQEqAgEf0wGrAtMBhAMCARzTAY8D0wG2AwIBGdMBf9MBhQECARjZAR+ZAioCARGEAUuEAU8CAVGBAUyBAWECAU+bASGiASwCATuwASG3ASwCAS3FASHMASwCASDaASHoASwCARPpASGYAjECARKgAZ8BoAHFAgIBQaAB0AKgAeQCAgE/mwF+mwGEAQIBPp0BTZ0BUQIBPZ0BQJ0BRAIBPLUBnwG1AcQBAgEytQHPAbUB4wECATCyAU2yAVECAS+yAUCyAUQCAS7KAbQBygHIAQIBI8cBTccBUQIBIscBQMcBRAIBIeYBnwHmAcYBAgEX5gHRAeYB5QECARXaAX7aAYQBAgEU</sads:DebugSymbol.Symbol>
   </Flowchart>
   <sap2010:WorkflowViewState.ViewStateManager>
     <sap2010:ViewStateManager>
@@ -437,7 +437,7 @@
           </scg:Dictionary>
         </sap:WorkflowViewStateService.ViewState>
       </sap2010:ViewStateData>
-      <sap2010:ViewStateData Id="Parallel_1" sap:VirtualizedContainerService.HintSize="2492,1196">
+      <sap2010:ViewStateData Id="Parallel_1" sap:VirtualizedContainerService.HintSize="200,51">
         <sap:WorkflowViewStateService.ViewState>
           <scg:Dictionary x:TypeArguments="x:String, x:Object">
             <x:Boolean x:Key="IsExpanded">True</x:Boolean>

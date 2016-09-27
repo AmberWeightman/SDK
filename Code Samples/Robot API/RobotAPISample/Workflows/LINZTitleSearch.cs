@@ -2,6 +2,7 @@
 using RobotAPISample.RequestsResponses;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace RobotAPISample.Workflows
@@ -21,8 +22,12 @@ namespace RobotAPISample.Workflows
 
         public LINZTitleSearchType[] Types { get; set; }
         
+        public TitleSearchRequest[] SourceRequests { get; }
+
         public LINZTitleSearchWorkflowRequest(TitleSearchRequest[] titleSearchRequests)
         {
+            SourceRequests = titleSearchRequests;
+
             var requestCount = titleSearchRequests.Count();
             var titleReferences = new string[requestCount];
             var types = new LINZTitleSearchType[requestCount];
@@ -42,6 +47,8 @@ namespace RobotAPISample.Workflows
 
         public override bool Validate()
         {
+            var isValid = base.Validate();
+
             if (TitleReferences == null || !TitleReferences.Any())
             {
                 throw new ApplicationException("At least one title reference is required.");
@@ -54,7 +61,8 @@ namespace RobotAPISample.Workflows
             {
                 throw new ApplicationException("Mismatched OrderId/Type count.");
             }
-            return base.Validate();
+
+            return isValid;
         }
     }
 
@@ -63,6 +71,39 @@ namespace RobotAPISample.Workflows
         public List<SearchResult> SearchResults { get; set; }
 
         public List<string> FileNames { get; set; }
+
+        public override bool Validate(IWorkflowRequest request)
+        {
+            var isValid = base.Validate(request);
+
+            var workflowSearchRequest = request as LINZTitleSearchWorkflowRequest;
+            if (workflowSearchRequest != null)
+            {
+                if (FileNames != null && FileNames.Any())
+                {
+                    // Check that the files actually exist, because we can't trust the workflow for anything
+                    foreach (var fileName in FileNames)
+                    {
+                        var filePath = $"{WorkflowSearchRequest.OutputDirectory}{fileName}";
+                        if (!File.Exists(filePath))
+                        {
+                            throw new ApplicationException($"Failed to successfully create file {filePath}.");
+                        }
+
+                        // Update the source request with the saved file name
+                        var orderId = fileName.Split('_')[0];
+                        var associatedSourceRequest = workflowSearchRequest.SourceRequests.SingleOrDefault(sr => string.Equals(sr.OrderId, orderId));
+                        if (associatedSourceRequest != null)
+                        {
+                            associatedSourceRequest.Success = true;
+                            associatedSourceRequest.OutputFilePath = filePath;
+                        }
+                    }
+                }
+            }
+            
+            return isValid;
+        }
     }
 
     public class SearchResult
@@ -92,12 +133,16 @@ namespace RobotAPISample.Workflows
                 TimeshareWeek = values[7];
             }
         }
+        
     }
     
     public class LINZTitleSearchWorkflow : RobotWorkflowBase<LINZTitleSearchWorkflowRequest, LINZTitleSearchWorkflowResponse>
     {
         public  override string WorkflowFile => WorkflowFiles.LINZTitleSearchWorkflow;
+
         public override WorkflowType WorkflowType => WorkflowType.LINZTitleSearch;
+
+        public override int MaxWorkflowDurationMins => 10;
     }
     
 }

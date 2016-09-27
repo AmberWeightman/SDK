@@ -19,6 +19,9 @@ namespace RobotAPISample.Automation
 
         private static string _user = @"INFOTRACK\amber.weightman";
 
+        private static int _maxTimeExpectedForCitrixFirstLoad = 30000; // Initial load of Citrix can take a bit longer than usual. It wouldn't usually be this long, but we need to allow for it.
+        private static int _maxTimeExpectedForCitrixReload = 15000;
+
         public static bool EnsureCitrixRunning()
         {
             var fileExists = File.Exists(_citrixClientPath);
@@ -29,28 +32,26 @@ namespace RobotAPISample.Automation
             }
 
             // If the .ica file exists already, check whether Landonline is already running
-            if (fileExists && CheckCitrixAvailable())
+            if (fileExists && CheckCitrixAvailable(0))
             {
                 return true;
             }
-
+            
             // If the file exists, attempt to run it
             // (Note that this may be attempting to run an old, expired file, which may not work)
-            if (fileExists && RunCitrixClient() && CheckCitrixAvailable())
+            if (fileExists && RunCitrixClient() && CheckCitrixAvailable(_maxTimeExpectedForCitrixReload))
             {
                 return true;
             }
 
             fileExists = DownloadCitrixClient();
-
-            return fileExists && RunCitrixClient() && CheckCitrixAvailable();
+            return fileExists && RunCitrixClient() && CheckCitrixAvailable(_maxTimeExpectedForCitrixFirstLoad);
         }
 
-        private static bool CheckCitrixAvailable()
+        private static bool CheckCitrixAvailable(int initialTimeoutDelayAllowed)
         {
-            var response = new CheckCitrixAvailabilityWorkflow().Execute(new WorkflowRequest());
-
-            return response.IsAvailable;
+            var response = new CheckCitrixAvailabilityWorkflow().Execute(new WorkflowRequest(initialTimeoutDelayAllowed));
+            return response.Success;
         }
 
         private static bool DownloadCitrixClient()
@@ -58,6 +59,9 @@ namespace RobotAPISample.Automation
             // We need to re-download the file, so nuke it if it already exists in downloads
             if (File.Exists(_downloadFileLocation))
                 File.Delete(_downloadFileLocation);
+
+            // Also, we wouldn't be downloading if this file was ok, so delete it too
+            DeleteCitrixFileIfExisting();
 
             ProcessStartInfo startInfo = new ProcessStartInfo(_chromePath)
             {
@@ -72,9 +76,10 @@ namespace RobotAPISample.Automation
 
             // Wait for 5 seconds while the webpage loads...
             Console.WriteLine($"Waiting for {_landOnlineUrl} to load...");
-            Thread.Sleep(5000);
+            int maxTimeExpectedForUrlToLoad = 10000;
+            //Thread.Sleep(5000);
 
-            var response = new ChromeDownloadCitrixWorkflow().Execute(new WorkflowRequest());
+            var response = new ChromeDownloadCitrixWorkflow().Execute(new WorkflowRequest(maxTimeExpectedForUrlToLoad));
 
             // Wait for the file to be downloaded, then move it to the expected location
             return MoveCitrixClientFile();
@@ -84,13 +89,13 @@ namespace RobotAPISample.Automation
         {
             var processStartInfo = new ProcessStartInfo(_citrixClientPath);
             //var processStartInfo2 = new ProcessStartInfo(@"C:\Program Files (x86)\Citrix\ICA Client\wfica32.exe", _citrixClientPath);
-            ExecuteProcess(processStartInfo);
+            return ExecuteProcess(processStartInfo);
 
             // This particular process takes some time to start up
-            Console.WriteLine("Waiting for Citrix client to load...");
-            Thread.Sleep(10000); // give it time to open
-            Console.WriteLine("Citrix client has probably loaded by now\n");
-            return true;
+            //Console.WriteLine("Waiting for Citrix client to load...");
+            //Thread.Sleep(10000); // give it time to open
+            //Console.WriteLine("Citrix client has probably loaded by now\n");
+            //return true;
         }
 
         private static bool ExecuteProcess(ProcessStartInfo processStartInfo)
@@ -106,7 +111,7 @@ namespace RobotAPISample.Automation
             }
             catch (Exception e)
             {
-                return false; // TODO should probably not be conceling this
+                return false; // TODO should probably not be concealing this
             }
 
             if (process != null && !process.HasExited)
@@ -117,6 +122,18 @@ namespace RobotAPISample.Automation
                 process?.WaitForInputIdle(10000); // this happens almost immediately - the citrix window still isn't ready for us yet
             }
             return true; // Errors are still not being caught successfully
+        }
+
+        private static void DeleteCitrixFileIfExisting()
+        {
+            if (File.Exists(_citrixClientPath))
+            {
+                File.Delete(_citrixClientPath);
+            }
+            if (File.Exists($"{_citrixClientPath}.txt"))
+            {
+                File.Delete($"{_citrixClientPath}.txt");
+            }
         }
 
         private static bool MoveCitrixClientFile()
@@ -133,14 +150,7 @@ namespace RobotAPISample.Automation
                 throw new FileNotFoundException(_downloadFileLocation);
             }
 
-            if (File.Exists(_citrixClientPath))
-            {
-                File.Delete(_citrixClientPath);
-            }
-            if (File.Exists($"{_citrixClientPath}.txt"))
-            {
-                File.Delete($"{_citrixClientPath}.txt");
-            }
+            DeleteCitrixFileIfExisting();
 
             File.Move(_downloadFileLocation, _citrixClientPath);
             Console.WriteLine("File {0} was found and moved to {1}.", _downloadFileLocation, _citrixClientPath);
@@ -422,14 +432,17 @@ namespace RobotAPISample.Automation
 
         public static LINZTitleSearchWorkflowResponse ExecuteTitleSearch(TitleSearchRequest[] titleSearchRequests)
         {
-            var response = new LINZTitleSearchWorkflow().Execute(new LINZTitleSearchWorkflowRequest(titleSearchRequests));
-
-            Console.WriteLine("");
-            Console.WriteLine($"Citrix workflow status: {response.WorkflowStatus}");
+            var request = new LINZTitleSearchWorkflowRequest(titleSearchRequests);
+            var response = new LINZTitleSearchWorkflow().Execute(request);
+            
+            Console.WriteLine($"\nCitrix workflow status: {response.WorkflowStatus}");
             Console.WriteLine($"Search results:");
-            foreach (var searchResult in response.SearchResults)
+            if (response.SearchResults != null && response.SearchResults.Any())
             {
-                Console.WriteLine(searchResult);
+                foreach (var searchResult in response.SearchResults)
+                {
+                    Console.WriteLine(searchResult);
+                }
             }
             
             return response;
@@ -439,8 +452,13 @@ namespace RobotAPISample.Automation
     public class TitleSearchRequest
     {
         public string TitleReference { get; set; }
+
         public LINZTitleSearchType Type { get; set; }
 
         public string OrderId { get; set; }
+
+        public string OutputFilePath { get; set; }
+
+        public bool Success { get; set; }
     }
 }

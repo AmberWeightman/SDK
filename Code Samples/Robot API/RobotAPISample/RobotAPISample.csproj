@@ -109,7 +109,6 @@
     <Compile Include="Workflows\Messages.cs" />
     <Compile Include="RequestsResponses\WorkflowSearch.cs" />
     <Compile Include="Workflows\LINZTitleSearch.cs" />
-    <Compile Include="Workflows\CitrixDemo.cs" />
     <Compile Include="Workflows\CheckCitrixAvailability.cs" />
     <Compile Include="Workflows\RobotWorkflowBase.cs" />
     <Compile Include="RequestsResponses\WorkflowResponseFactory.cs" />

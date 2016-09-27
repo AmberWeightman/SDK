@@ -12,6 +12,10 @@ namespace RobotAPISample.Automation
         void RequestStop();
 
         void SetResult(WorkflowResponse response);
+
+        WorkflowType WorkflowType { get; }
+
+        Guid? RobotJobGuid { get; }
     }
 
     public class RobotWorker<TRequest, TResponse> : IRobotWorker, IDisposable
@@ -20,28 +24,40 @@ namespace RobotAPISample.Automation
     {
         private static string _user = @"INFOTRACK\amber.weightman";
 
-        private static int _syncExecutionTimeoutMins = 2;
+        private static int _syncExecutionTimeoutMins = 10;
 
         //private string _robotWorkflowPath { get; set; }
         public TRequest InputArguments { get; set; }
         public TResponse Result { get; private set; }
         public bool IsActive { get; set; }
 
-        private Guid? _jobGuid = null;
-
-        private readonly WorkflowType _workflowType;
+        public Guid? RobotJobGuid { get; private set; }
         
-        internal WorkflowResponse ExecuteRobotJobSynchronously<TWorkflow>(TWorkflow robotWorkflowBase, int? timeoutMins = null)
+        private RobotClient _robotClient = null;
+        
+        public WorkflowType WorkflowType { get; private set; }
+        
+        internal WorkflowResponse ExecuteRobotJobSynchronously<TWorkflow>(TWorkflow robotWorkflowBase)
             where TWorkflow : RobotWorkflowBase<TRequest, TResponse>
         {
-            var workerThread = new Thread(() => ExecuteRobotJob(robotWorkflowBase.WorkflowFile));
+            if (Threading.ActiveRobotWorker != null)
+            {
+                throw new ApplicationException("Can only have one active robot thread.");
+            }
+            Threading.ActiveRobotWorker = this;
+
+            var workerThread = Threading.CreateRobotThread(() => ExecuteRobotJob(robotWorkflowBase.WorkflowFile));
+            if (workerThread == null)
+            {
+                throw new ApplicationException("Unable to launch robot thread at this time.");
+            }
+            
             workerThread.Start();
 
             // Loop until worker thread activates. 
-            while (!workerThread.IsAlive) ;
+            while (!workerThread.IsAlive);
 
-            var mins = timeoutMins != null && timeoutMins.HasValue ? timeoutMins.Value : _syncExecutionTimeoutMins;
-            workerThread.Join(TimeSpan.FromMinutes(mins));
+            workerThread.Join(TimeSpan.FromMinutes(robotWorkflowBase.MaxWorkflowDurationMins));
 
             if (IsActive) // if the worker is still active, waiting has timed out, so stop it
             {
@@ -60,20 +76,25 @@ namespace RobotAPISample.Automation
         public RobotWorker(TRequest inputArguments, WorkflowType workflowType)
         {
             InputArguments = inputArguments;
-            _workflowType = workflowType;
+            WorkflowType = workflowType;
         }
         
         public void ExecuteRobotJob(string robotWorkflowPath)
         {
             IsActive = true;
+            
             var resp = ExecuteRobotJobAsync(InputArguments, robotWorkflowPath);
 
             while (!_shouldStop)
             {
                 // TODO timeout? (Although the parent thread does have a timeout after which it will tell this thread to terminate)
             }
+
             //Console.WriteLine("worker thread: terminating gracefully.");
             IsActive = false;
+
+            //Threading.CloseRobotThread();
+
         }
 
         public void RequestStop()
@@ -83,24 +104,24 @@ namespace RobotAPISample.Automation
 
         public void SetResult(WorkflowResponse response)
         {
-            Result = WorkflowResponseFactory.Create(_workflowType, response) as TResponse;
+            var result = WorkflowResponseFactory.Create(WorkflowType, response);
+            Result = result as TResponse;
         }
 
         private Guid ExecuteRobotJobAsync(TRequest inputArguments, string robotWorkflowPath)
         {
-            var job = new RobotClientJob
+            _robotClient = new RobotClient();
+            var job = new RobotClientJob(_robotClient)
             {
                 WorkflowFile = robotWorkflowPath,
                 InputArguments = inputArguments,
                 User = _user,
-                Type = 0
+                Type = 0,
             };
-            var serialisedJob = JsonConvert.SerializeObject(job);
-            //Console.WriteLine(serialisedJob);
-            _jobGuid = new RobotClient().StartJob(serialisedJob);
+           
+            RobotJobGuid = job.Start();
             
-            Threading.RobotWorkflowThreads.Add(_jobGuid.Value, this);
-            return _jobGuid.Value;
+            return RobotJobGuid.Value;
         }
 
         public class RobotClientJob
@@ -110,8 +131,21 @@ namespace RobotAPISample.Automation
             public TResponse OutputArguments { get; set; }
             public string User { get; set; }
             public int Type { get; set; }
-        }
+            private RobotClient _robotClient;
+            
+            public RobotClientJob(RobotClient robotClient)
+            {
+                _robotClient = robotClient;
+            }
 
+            internal Guid Start()
+            {
+                var serialisedJob = JsonConvert.SerializeObject(this);
+                var guid = _robotClient.StartJob(serialisedJob);
+                return guid;
+            }
+        }
+        
         #region IDisposable Support
         private bool disposedValue = false; // To detect redundant calls
 
@@ -119,19 +153,26 @@ namespace RobotAPISample.Automation
         {
             if (!disposedValue)
             {
+                var wasActive = (this == Threading.ActiveRobotWorker);
                 if (disposing)
                 {
-                    // TODO: dispose managed state (managed objects).
-                    if (_jobGuid != null && _jobGuid.HasValue && Threading.RobotWorkflowThreads.ContainsKey(_jobGuid.Value))
-                    {
-                        if (Threading.RobotWorkflowThreads.ContainsKey(_jobGuid.Value))
-                        {
-                            Threading.RobotWorkflowThreads.Remove(_jobGuid.Value);
-                        }
-                    }
+                    // Dispose managed state (managed objects).
+                    Threading.ActiveRobotWorker = null;
                 }
 
-                // TODO: free unmanaged resources (unmanaged objects) and override a finalizer below.
+                // Free unmanaged resources (unmanaged objects) and (TODO) override a finalizer below.
+                if (wasActive && RobotJobGuid.HasValue)
+                {
+                    // Ask the UiRobot to close gracefully
+                    _robotClient.CancelJob(RobotJobGuid.Value);
+                    _robotClient.RemoveJob(RobotJobGuid.Value);
+
+                    // TODO Should I sleep or wait? How long does this take? I don't know...
+
+                    // The robot might still be running, or have child threads running, which need to be killed off. Don't trust it to handle its own memory.
+                    Threading.KillRobotThread();
+                }
+               
                 // TODO: set large fields to null.
                 
                 disposedValue = true;
@@ -139,10 +180,10 @@ namespace RobotAPISample.Automation
         }
 
         // TODO: override a finalizer only if Dispose(bool disposing) above has code to free unmanaged resources.
-        // ~RobotWorker() {
-        //   // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
-        //   Dispose(false);
-        // }
+         ~RobotWorker() {
+            // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
+            Dispose(false);
+         }
 
         // This code added to correctly implement the disposable pattern.
         public void Dispose()
@@ -150,7 +191,7 @@ namespace RobotAPISample.Automation
             // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
             Dispose(true);
             // TODO: uncomment the following line if the finalizer is overridden above.
-            // GC.SuppressFinalize(this);
+            GC.SuppressFinalize(this);
         }
         #endregion
     }

@@ -7,37 +7,45 @@ namespace RobotAPISample.RequestsResponses
     public abstract class WorkflowSearchRequest : WorkflowRequest
     {
         public string[] OrderIds { get; set; }
-
-        public const int DefaultTimeoutMS = 2000;
-
+        
         public const string OutputDirectory = @"C:\LandonlineOutputDirectory\";
 
         public override bool Validate()
         {
+            var isValid = base.Validate();
+
             if (OrderIds == null || !OrderIds.Any())
             {
                 throw new ApplicationException("OrderId is mandatory");
             }
-            return base.Validate();
+
+            return isValid;
         }
     }
 
     public abstract class WorkflowSearchResponse : WorkflowResponse
     {
         public string[] OrderIds { get; set; }
-
-        /// <summary>
-        /// Was the search completed successfully with no errors?
-        /// </summary>
-        public bool Success { get; set; }
-
-        public override bool Validate()
+        
+        public override bool Validate(IWorkflowRequest request)
         {
+            var isValid = base.Validate(request);
+            
             if (OrderIds == null || !OrderIds.Any())
             {
                 throw new ApplicationException("OrderId is mandatory");
             }
-            return base.Validate();
+
+            var workflowSearchRequest = request as WorkflowSearchRequest;
+            if (workflowSearchRequest != null)
+            {
+                if(workflowSearchRequest.OrderIds != this.OrderIds)
+                {
+                    throw new ApplicationException("OrderIds do not match request");
+                }
+            }
+
+            return isValid;
         }
     }
 }

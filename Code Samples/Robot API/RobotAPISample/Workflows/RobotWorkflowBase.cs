@@ -12,6 +12,8 @@ namespace RobotAPISample.Workflows
         public abstract string WorkflowFile { get; }
 
         public abstract WorkflowType WorkflowType { get; }
+
+        public abstract int MaxWorkflowDurationMins { get; }
         
         public virtual TResponse Execute(TRequest request)
         {
@@ -21,7 +23,7 @@ namespace RobotAPISample.Workflows
             {
                 var response = robotWorker.ExecuteRobotJobSynchronously(this);
 
-                response.Validate();
+                response.Validate(request);
                 PrintMessages(response);
 
                 return response as TResponse;
@@ -45,7 +47,7 @@ namespace RobotAPISample.Workflows
             {
                 foreach (var error in response.ErrorMessages)
                 {
-                    Console.WriteLine($"Error: {error}");
+                    Console.WriteLine($"Error {error.Code}: {error}");
                 }
             }
 
@@ -53,13 +55,11 @@ namespace RobotAPISample.Workflows
             {
                 foreach (var warn in response.WarningMessages)
                 {
-                    Console.WriteLine($"Warning: {warn}");
+                    Console.WriteLine($"Warning {warn.Code}: {warn}");
                 }
             }
         }
 
     }
-
-
-
+    
 }

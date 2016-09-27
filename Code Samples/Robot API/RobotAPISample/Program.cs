@@ -1,5 +1,6 @@
 ﻿using System;
 using RobotAPISample.Automation;
+using System.Diagnostics;
 
 namespace RobotAPISample
 {
@@ -13,11 +14,7 @@ namespace RobotAPISample
                 throw new ApplicationException("Unable to launch Citrix");
             }
 
-            // TODO must ensure that it handles invalid references gracefully
-            //TitleReferences = new List<string> { "WN516/98", "OT17A/765", "MB23C/987" },
-            //TitleReferences = new [] { "WN516/98", "OT17A/765" },
-
-            var response = Landonline.ExecuteTitleSearch(new TitleSearchRequest[] 
+            var request = new TitleSearchRequest[]
             {
                 new TitleSearchRequest
                 {
@@ -25,28 +22,34 @@ namespace RobotAPISample
                     Type = Workflows.LINZTitleSearchType.TitleSearchNoDiagram,
                     OrderId = "Order000"
                 },
-                //new TitleSearchRequest
-                //{
-                //    TitleReference = "WN516/98",
-                //    Type = Workflows.LINZTitleSearchType.Guaranteed,
-                //    OrderId = "Order001"
-                //},
-                //new TitleSearchRequest
-                //{
-                //    TitleReference = "invalid",
-                //    Type = Workflows.LINZTitleSearchType.TitleSearchNoDiagram,
-                //    OrderId = "Order000"
-                //},
-                //new TitleSearchRequest
-                //{
-                //    TitleReference = "OT17A/765",
-                //    Type = Workflows.LINZTitleSearchType.Historical,
-                //    OrderId = "Order002"
-                //}
-            });
+                new TitleSearchRequest
+                {
+                    TitleReference = "WN516/98",
+                    Type = Workflows.LINZTitleSearchType.Guaranteed,
+                    OrderId = "Order001"
+                },
+                new TitleSearchRequest
+                {
+                    TitleReference = "invalid",
+                    Type = Workflows.LINZTitleSearchType.TitleSearchNoDiagram,
+                    OrderId = "Order002"
+                },
+                new TitleSearchRequest
+                {
+                    TitleReference = "OT17A/765",
+                    Type = Workflows.LINZTitleSearchType.Historical,
+                    OrderId = "Order003"
+                }
+            };
+
+            var response = Landonline.ExecuteTitleSearch(request);
             
+            // Remember to inspect the request to make sure file names were updated on it
+
             Console.ReadLine();
         }
+
+        
     }
     
 }
